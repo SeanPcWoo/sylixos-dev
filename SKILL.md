@@ -15,7 +15,7 @@ Use this skill for:
 - **Device management** — adding, listing, updating, deleting target devices (`rl-device`)
 - **Deployment** — uploading projects/workspace to devices (`rl-upload`)
 
-Parameter collection and execution are handled by Bash scripts. Claude extracts parameters from the user's request and calls the scripts in CLI mode.
+Parameter collection and execution are handled by Bash scripts. The agent extracts parameters from the user's request and calls the scripts in CLI mode.
 
 ## Workspace Modes
 
@@ -162,7 +162,7 @@ Common user requests and how to map them:
 
 ## Project Registry
 
-The project registry (`data/projects.json`) is a persistent mapping of project names to their git repos and creation parameters. Claude manages it directly using Read/Write tools.
+The project registry (`data/projects.json`) is a persistent mapping of project names to their git repos and creation parameters. The agent manages it by reading and writing the JSON file directly.
 
 ### Registry Format
 
@@ -295,7 +295,7 @@ The user only needs to provide the **IP address**. All other parameters have def
 
 - `--name`: Auto-generate from IP → `dev-<ip-with-dashes>` (e.g. `dev-192-168-1-100`)
 - `--ip`: User-provided (required)
-- `--platform`: **Infer from workspace** — read the `platforms` array in `.realevo/config.json` (e.g. `ARM64_GENERIC`)
+- `--platform`: **Infer from workspace** — read the `platforms` array in `.realevo/config.json` (e.g. `ARM64_GENERIC`). Can also run: `cat .realevo/config.json | python3 -c "import sys,json; print(json.load(sys.stdin)['platforms'][0])"`
 - `--user` / `--password`: Default `root` / `root` (rl-device defaults)
 - `--os`: Default `sylixos` (rl-device default)
 - Ports: All defaults (SSH 22, Telnet 23, FTP 21, GDB 1234)
@@ -316,7 +316,7 @@ The user can override any default (name, password, ports, etc.) by mentioning it
 ### Device Workflow
 
 1. **Extract IP**: Get the IP address from the user's message
-2. **Infer platform**: Read `.realevo/config.json` → `platforms[0]`
+2. **Infer platform**: Read `.realevo/config.json` → `platforms[0]`. Shell: `cat .realevo/config.json | python3 -c "import sys,json; print(json.load(sys.stdin)['platforms'][0])"`
 3. **Generate name**: Convert IP to `dev-<ip-with-dashes>` format
 4. **Show command**: Present the `rl-device add` command and ask for confirmation
 5. **Execute**: Run the command
