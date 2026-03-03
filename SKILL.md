@@ -383,7 +383,16 @@ Transfers the workspace's `.realevo/arch/<platform>/rootfs/` to the device.
 - Upload command options: `references/upload_command.md`
 - Platform compile parameters: `references/platform_compile_parameter.md`
 
-### Online Documentation
+### GitLab Repository
+
+Internal GitLab server with all SylixOS source code, BSP, drivers, middleware, and project repos:
+
+- Web: http://10.7.100.21:8000/
+- SSH clone: `ssh://git@10.7.100.21:16783/<group>/<repo>.git`
+- Repository catalog (human-readable): `data/gitlab_catalog.md`
+- Repository catalog (machine-readable, all 2128 repos): `data/gitlab_repos.json`
+
+When the user mentions a repo name or wants to find a project, search the catalog first. Use the JSON file for programmatic lookups.
 
 When local references are insufficient or you need more details, consult the official RealEvo-Stream documentation:
 
