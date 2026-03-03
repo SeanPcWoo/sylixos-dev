@@ -374,9 +374,29 @@ Transfers the workspace's `.realevo/arch/<platform>/rootfs/` to the device.
 
 ## References
 
+### Local Reference Docs
+
 - Workspace command options: `references/workspace_command.md`
 - Project command options: `references/project_command.md`
 - Build command options: `references/build_command.md`
 - Device command options: `references/device_command.md`
 - Upload command options: `references/upload_command.md`
 - Platform compile parameters: `references/platform_compile_parameter.md`
+
+### Online Documentation
+
+When local references are insufficient or you need more details, consult the official RealEvo-Stream documentation:
+
+- Command reference (all CLI commands): https://docs.acoinfo.com/realevo-stream/guide/command/
+- Workspace command: https://docs.acoinfo.com/realevo-stream/guide/command/workspace_command.html
+- Project command: https://docs.acoinfo.com/realevo-stream/guide/command/project_command.html
+- Build command: https://docs.acoinfo.com/realevo-stream/guide/command/build_command.html
+- Device command: https://docs.acoinfo.com/realevo-stream/guide/command/device_command.html
+- Upload command: https://docs.acoinfo.com/realevo-stream/guide/command/upload_command.html
+- Armory (package management): https://docs.acoinfo.com/realevo-stream/guide/command/armory_command.html
+- Debug command: https://docs.acoinfo.com/realevo-stream/guide/command/debug_command.html
+
+SylixOS general documentation:
+
+- SylixOS official docs: https://docs.acoinfo.com/
+- RealEvo-Stream guide: https://docs.acoinfo.com/realevo-stream/guide/
