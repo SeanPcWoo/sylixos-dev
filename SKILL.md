@@ -1,411 +1,183 @@
 ---
 name: sylixos-dev
-description: Assist SylixOS and RealEvo-Stream command-line development workflows. Use when users need to initialize a workspace, create projects, build, manage devices, or deploy. Trigger phrases include "创建 workspace", "初始化工作空间", "create workspace", "init workspace", "准备 Base 工程", "创建工程", "创建项目", "create project", "新建 BSP 工程", "新建应用", "工程记录", "project registry", "编译", "构建", "build", "make", "创建设备", "add device", "设备管理", "device", "部署", "上传", "deploy", "upload".
+description: >
+  SylixOS / RealEvo 开发助手。当用户要搭建或复用 SylixOS workspace、生成 workspace/project/device/full
+  JSON 配置或模板、初始化或导入工程、生成或修改 .sydev/Makefile、添加或管理设备、编译/clean/rebuild、
+  上传产物、编辑 .reproject，或只提供芯片/平台名（如 rk3568、rk3588、x86、RISC-V、LoongArch、飞腾、龙芯）
+  时触发。稳定入口是 sydev CLI。
 ---
 
-# SylixOS Dev
+# SylixOS / RealEvo Assistant
 
-## Scope
+把 `sydev` 当成稳定入口，优先走 CLI 和 JSON 配置文件，不要依赖内部 TypeScript API 或交互式提示。
 
-Use this skill for:
-- **Workspace bootstrapping** through `rl-workspace init`
-- **Project creation** through `rl-project create` (BSP, apps, libraries, kernel modules, etc.)
-- **Project registry** management — persistent mapping of project names to git repos
-- **Building** — Base (`make`) and projects (`rl-build`)
-- **Device management** — adding, listing, updating, deleting target devices (`rl-device`)
-- **Deployment** — uploading projects/workspace to devices (`rl-upload`)
+## 工作原则
 
-Parameter collection and execution are handled by Bash scripts. The agent extracts parameters from the user's request and calls the scripts in CLI mode.
+- 优先非交互模式：完整参数、`--config`、`template apply ... -y`、`init --config`
+- 执行动作时依赖退出码；读取状态时直接读 workspace 文件
+- `build`、`clean`、`rebuild`、`upload`、`project list`、`template export` 默认要求当前目录就是 workspace 根目录
+- 多工程上传或 `--all` 上传时，总是显式传 `--device`
+- 用户要求“以后复用”时，优先生成 JSON 配置文件，再决定是否导入为全局模板
+- 修改 `.sydev/Makefile` 或 `.reproject` 前，先读 `references/workspace-files.md`
+- 如果文档、旧技能和当前实现冲突，以当前 `sydev` 仓库文档和 CLI 实现为准
 
-## Script Location
+## 开始前检查
 
-The helper scripts are in the `scripts/` directory relative to this SKILL.md file. Before calling scripts, resolve the absolute path to this skill directory. Common locations:
-
-- Global (all agents): `~/.agents/skills/sylixos-dev/`
-- Project-level: `<workspace>/.agents/skills/sylixos-dev/`
-
-Use `SKILL_DIR` as a shorthand in this document. For example, `$SKILL_DIR/scripts/workspace_init.sh` means the `scripts/workspace_init.sh` file inside whichever location the skill is installed.
-
-## Workspace Modes
-
-| Mode | When to use |
-|------|-------------|
-| `product` | User mentions a specific product name/series |
-| `prepared-base` | Most common: user wants a fresh SylixOS workspace from a prepared Base |
-| `research-base` | User wants to do kernel research/development on libsylixos source |
-| `existing-base` | User already has a compiled Base directory |
-| `linux` | User wants a Linux cross-compilation workspace |
-| `custom` | User wants to manually specify arbitrary parameters |
-
-## Workflow
-
-When the user requests workspace initialization:
-
-1. **Extract parameters**: From the user's message, determine mode and any explicitly mentioned parameters (platform, version, etc.)
-2. **First run with `--dry-run`**: Call the script to validate and preview the command:
-   ```bash
-   bash $SKILL_DIR/scripts/workspace_init.sh \
-     --mode=<mode> --platform=<platform> [other params...] --dry-run
-   ```
-3. **Show the dry-run output** to the user and ask for confirmation
-4. **Execute**: After user confirms, run again with `--yes` to execute:
-   ```bash
-   bash $SKILL_DIR/scripts/workspace_init.sh \
-     --mode=<mode> --platform=<platform> [other params...] --yes
-   ```
-5. **Report result**: Summarize success or failure
-
-## Script CLI Parameters
-
-Required per mode:
-
-| Mode | Required | Optional |
-|------|----------|----------|
-| `product` | `--product` | |
-| `prepared-base` | `--version`, `--platform` | `--debug_level`, `--createbase`, `--build`, `--base` |
-| `research-base` | `--platform` | `--debug_level`, `--base`, `--research_repo`, `--research_branch` |
-| `existing-base` | `--base`, `--platform` | `--build`, `--debug_level` |
-| `linux` | `--linux_platform`, `--toolchain` | |
-| `custom` | `--custom_args` | |
-
-Defaults applied by script: `debug_level=release`, `createbase=true`, `build=false` (prepared-base & existing-base).
-
-Research-base forces: `version=default`, `createbase=true`, `build=false`. Post-init patches the Makefile (SUBDIR → `libsylixos libcextern`, all target make → `make -j16`) but does **not** build by default.
-
-Common `--workspace=<dir>` parameter sets the workspace directory.
-
-Flags: `--dry-run` (preview only), `--yes` (skip confirmation).
-
-## Platform Mapping Hints
-
-When users say informal platform names, map them:
-- "arm7" / "a7" / "cortex-a7" → `ARM_A7`
-- "arm9" / "920t" → `ARM_920T`
-- "arm64" / "aarch64" / "a53" → `ARM64_A53` or `ARM64_GENERIC`
-- "x86" / "pentium" → `x86_PENTIUM`
-- "x64" / "x86_64" → `X86_64`
-- "riscv" / "riscv64" → `RISCV_GC64`
-- "loongarch" → `LOONGARCH64`
-
-Full platform list: see `references/platform_compile_parameter.md`
-
----
-
-## Project Creation
-
-### Project Types & Templates
-
-| Type | Description |
-|------|-------------|
-| `cmake` | CMake build system |
-| `automake` | Automake build system |
-| `realevo` | RealEvo-IDE compatible |
-| `python` | Python project |
-| `cython` | Cython project |
-| `go` | Go project |
-| `javascript` | JavaScript project |
-| `ros2` | ROS2 project |
-
-| Template | Description |
-|----------|-------------|
-| `app` | C/C++ application |
-| `lib` | C/C++ dynamic library |
-| `ko` | Kernel module |
-| `common` | General-purpose |
-| `shared_lib` | RealEvo-IDE compatible dynamic library |
-
-### Project Creation Workflow
-
-When the user requests project creation:
-
-1. **Extract parameters**: From the user's message, determine name, type, template, source (repo URL), branch, and other options
-2. **Check registry**: Read `data/projects.json` and look for an existing entry
-   - If found and user didn't provide a new repo → use the registered repo URL and saved defaults
-   - If not found → require user to provide repo (or create without source)
-3. **Infer name**: If `--name` not provided but `--source` is a git URL, the script infers the name from the last path segment (strips `.git`)
-4. **First run with `--dry-run`**: Call the script to validate and preview:
-   ```bash
-   bash $SKILL_DIR/scripts/project_create.sh \
-     --name=<name> --type=<type> [other params...] --dry-run
-   ```
-5. **Show the dry-run output** to the user and ask for confirmation
-6. **Execute**: After user confirms, run again with `--yes`:
-   ```bash
-   bash $SKILL_DIR/scripts/project_create.sh \
-     --name=<name> --type=<type> [other params...] --yes
-   ```
-7. **Save to registry**: After successful creation, update `data/projects.json` with the project entry (see Registry Management below)
-8. **Report result**: Summarize success or failure
-
-### Script CLI Parameters
-
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `--name` | Yes* | Project name (*can be inferred from `--source`) |
-| `--type` | Yes | Build type: cmake, automake, realevo, python, cython, go, javascript, ros2 |
-| `--template` | No | Template: app, lib, ko, common, shared_lib |
-| `--source` | No | Local path or Git repo URL |
-| `--branch` | No | Git branch (requires `--source`) |
-| `--debug-level` | No | debug or release |
-| `--make-tool` | No | make or ninja |
-| `--quiet` | No | Skip interactive config file selection |
-
-Flags: `--dry-run` (preview only), `--yes` (skip confirmation).
-
-### Default Type
-
-If the user does not specify a build type, **default to `realevo`**.
-
-### Mapping User Intent to Parameters
-
-Common user requests and how to map them:
-
-- "创建一个 BSP 工程" → `--type=realevo --template=app`
-- "创建一个应用" → `--type=realevo --template=app`
-- "创建一个动态库" → `--type=realevo --template=lib`
-- "创建一个内核模块" → `--type=realevo --template=ko`
-- "创建一个 RealEvo 兼容库" → `--type=realevo --template=shared_lib`
-- "创建一个 Python 工程" → `--type=python --template=common`
-
----
-
-## Project Registry
-
-The project registry (`data/projects.json`) is a persistent mapping of project names to their git repos and creation parameters. The agent manages it by reading and writing the JSON file directly.
-
-### Registry Format
-
-```json
-{
-  "projects": {
-    "project-name": {
-      "repo": "ssh://git@example.com/project-name.git",
-      "type": "cmake",
-      "template": "app",
-      "branch": "main"
-    }
-  }
-}
-```
-
-Fields: `repo` (git URL), `type` (build type), `template` (optional), `branch` (optional).
-
-### When to Save
-
-After a successful `rl-project create` execution (not dry-run), save the project entry to the registry. Only save entries that have a git `repo` — projects created without `--source` or from local paths are not registered.
-
-### Registry Management Workflow
-
-- **User asks to list projects** ("帮我看看已经记录了哪些工程", "show registered projects"):
-  Read `data/projects.json` and display the entries in a readable table.
-
-- **User asks to update a project** ("把 bsp-xxx 的仓库改成 ...", "update repo for ..."):
-  Read the registry, update the specified entry, write back.
-
-- **User asks to delete a project record** ("删除 bsp-xxx 的记录", "remove ... from registry"):
-  Read the registry, remove the entry, write back.
-
-- **User creates a project that already exists in registry**:
-  Use the registered repo/type/template/branch as defaults. The user can override any value.
-
----
-
-## Build
-
-Two build paths: **Base build** (kernel/system libraries) and **Project build** (user projects).
-
-### Base Build
-
-Compiles the SylixOS base (libsylixos, libcextern, and other base libraries):
+先确认工具链和上下文：
 
 ```bash
-cd <workspace>/.realevo/base && make -j$(nproc)
+which sydev && sydev --version
+which rl && which rl-workspace && which rl-project
 ```
 
-Use when: after research-base setup, or when user needs to recompile the base system.
+然后判断当前任务属于哪一类：
 
-**Component selection**: The base Makefile (`.realevo/base/Makefile`) has a `SUBDIR` or `SUBDIRS` list of components. By default, some components are commented out. Before building base, review the list and **comment out** components that are not needed — but **always keep `libsylixos` and `libcextern` enabled** (these are essential). Ask the user if unsure which components to include.
+- 新建环境：收集 `cwd`、`basePath`、`version`、`platform(s)`、`os`、`debugLevel`、`createBase`、`build`
+- 维护现有 workspace：确认当前目录存在 `.realevo/`
+- 用户只给了芯片或板卡名：读取 `references/platform-mapping.md` 推断 `--platforms`；如果推断风险高，明确说明推断点并只追问缺失的架构信息
 
-### Project Build
+## 选工作流
 
-Compiles a user project using `rl-build`:
+### 1. 一次性初始化整套环境
+
+适用于“帮我把 workspace、工程、设备都建好”。
+
+- 优先写 `full-config.json`
+- 执行 `sydev init --config full-config.json`
+- 如果用户还想下次直接复用，再执行 `sydev template import full-config.json`
+
+### 2. 分步搭环境
+
+适用于只改某一部分，或者用户想显式控制每一步。
+
+- `sydev workspace init`
+- `sydev project create`
+- `sydev device add`
+- `sydev build`
+- `sydev upload`
+
+### 3. 模板化复用环境
+
+适用于“这套环境以后还要再来一遍”。
+
+- 从现有 workspace 导出：`sydev template export -o sydev-config.json`
+- 导入全局模板库：`sydev template import sydev-config.json`
+- 在新目录落地：`sydev template apply sydev-config.json --cwd <ws> --base-path <base> -y`
+
+### 4. 日常开发维护
+
+适用于已有 workspace 的编译、Makefile、上传和配置修补。
+
+- 刷新 `.sydev/Makefile`：`sydev build init`
+- 编译：`sydev build <project> --quiet -- -j$(nproc)`
+- 清理：`sydev clean <project>`
+- 重建：`sydev rebuild <project> -- -j$(nproc)`
+- 上传：`sydev upload <project> --device <device> --quiet`
+
+## 任务手册
+
+### 搭建 workspace
+
+- 用户想要可复用方案时，优先生成 `workspace.json`，不要先拼很长一条命令
+- `workspace init --config` 使用“命令参数风格”字段，细节见 `references/config-schema.md`
+- 用户只说芯片名时，先看 `references/platform-mapping.md`
+
+常用写法：
 
 ```bash
-rl-build all --project=<name> --parallel=$(nproc)
+sydev workspace init --config workspace.json
 ```
 
-Individual steps are also available: `clean`, `config`, `build`, `install`, `uninstall`, `symbolcheck`.
-
-The `--project` parameter is optional if cwd is inside the project directory.
-
-### Build All Projects
-
-When the user requests to build **all** projects ("编译所有工程", "全部编译", "build all"), follow this order:
-
-1. **Base** — compile the base system first (`make -j$(nproc)` in `.realevo/base`)
-2. **Compatibility layers** — e.g. `libdrv_linux_compat` (Linux 兼容层)
-3. **Driver/middleware libraries** — NIC drivers, other libs that BSP depends on (e.g. `libdrv_vndbind`)
-4. **BSP** — board support packages last (e.g. `bsprk3568`)
-
-This ensures dependencies are satisfied: BSP depends on driver libs, driver libs may depend on the compat layer, and everything depends on base.
-
-### Pre-Build Checks
-
-**1. RK3568 ARM64 64KB page size**: When building an ARM64 RK3568 BSP (e.g. `bsprk3568`) and base has not been compiled yet, **before compiling base**, verify that:
-
-- File: `.realevo/base/libsylixos/SylixOS/config/cpu/cpu_cfg_arm64.h`
-- Macro `LW_CFG_ARM64_PAGE_SHIFT` must be set to `16` (64KB page size)
-
-If the value is not `16`, modify it before building base. This is required for RK3568 ARM64 to function correctly.
-
-**2. WORKSPACE_xxx variables**: For all projects **except base**, before building, scan the project's Makefile and any included sub-makefiles (e.g. `config.mk`) for variables like `WORKSPACE_<project_name>`. These variables follow the pattern:
-
-- Variable name: `WORKSPACE_` + a project name that exists in the workspace directory
-- Expected value: the absolute path to that project in the workspace
-
-If any `WORKSPACE_xxx` variable is referenced but not defined, set it before building. Use `?=` to provide a default without overriding any existing value:
-
-```makefile
-WORKSPACE_libdrv_linux_compat ?= /path/to/workspace/libdrv_linux_compat
-```
-
-**3. BSP BOARD_LIST selection**: BSP Makefiles contain a `BOARD_LIST` variable listing available board variants. Some entries are enabled (uncommented) and some are commented out. Before building a BSP:
-
-- Read the Makefile and extract **all** `BOARD_LIST` entries (both enabled and commented out)
-- Present the **complete list** to the user and ask which board(s) to build — every board must appear as an option, do not pre-filter or omit any
-- Only enable the user's selected board(s), comment out all others
-
-**4. BSP license macro**: BSP platform-specific code lives in `<BSP>/SylixOS/bsp/`. Each board subdirectory has a config header (e.g. `XSpirit2.h`, `evb1.h`) containing a `BSP_CFG_LICENSE_EN` macro that controls time-limited license enforcement. **Set this to `0`** (disabled) for all boards being built, unless the user explicitly wants licensing enabled.
-
-### Build Workflow
-
-1. **Determine build type**: Base build vs project build vs build-all based on user request
-2. **Run pre-build checks**: Apply platform-specific checks (e.g. ARM64 page size for RK3568)
-3. **Show command**: Present the command to the user and ask for confirmation
-4. **Execute**: Run the build command
-5. **Report result**: Summarize success or failure, highlight any build errors
-
-### Mapping User Intent
-
-- "编译 base" / "build base" / "make base" → Base build
-- "编译 libdrv_vndbind" / "build project" / "构建工程" → Project build with `rl-build all`
-- "清理工程" / "clean project" → `rl-build clean`
-- "安装工程" / "install project" → `rl-build install`
-
----
-
-## Device Management
-
-Manages target device connections for deployment and debugging via `rl-device`.
-
-### Device Creation
-
-The user only needs to provide the **IP address**. All other parameters have defaults:
-
-- `--name`: Auto-generate from IP → `dev-<ip-with-dashes>` (e.g. `dev-192-168-1-100`)
-- `--ip`: User-provided (required)
-- `--platform`: **Infer from workspace** — read the `platforms` array in `.realevo/config.json` (e.g. `ARM64_GENERIC`). Can also run: `cat .realevo/config.json | python3 -c "import sys,json; print(json.load(sys.stdin)['platforms'][0])"`
-- `--user` / `--password`: Default `root` / `root` (rl-device defaults)
-- `--os`: Default `sylixos` (rl-device default)
-- Ports: All defaults (SSH 22, Telnet 23, FTP 21, GDB 1234)
+或：
 
 ```bash
-rl-device add --name=dev-192-168-1-100 --ip=192.168.1.100 --platform=ARM64_GENERIC
+sydev workspace init \
+  --cwd <ws> \
+  --base-path <ws>/.realevo/base \
+  --version default \
+  --platforms <platforms> \
+  --os sylixos \
+  --debug-level release \
+  --create-base \
+  --build
 ```
 
-The user can override any default (name, password, ports, etc.) by mentioning it.
+### 创建或导入工程
 
-### Other Device Operations
+- 现有仓库走 `--mode import`
+- 新建模板工程走 `--mode create`
+- 多工程环境优先落到 `full-config.json`，比多条 shell 命令更稳定
 
-- **List**: `rl-device list` — show all devices
-- **Delete**: `rl-device delete --name=<name>` — remove device
-- **Update**: `rl-device update --name=<name> [options]` — modify device config
-- **Install software**: `rl-device install --name=<name> --soft=<python|javascript>`
-
-### Device Workflow
-
-1. **Extract IP**: Get the IP address from the user's message
-2. **Infer platform**: Read `.realevo/config.json` → `platforms[0]`. Shell: `cat .realevo/config.json | python3 -c "import sys,json; print(json.load(sys.stdin)['platforms'][0])"`
-3. **Generate name**: Convert IP to `dev-<ip-with-dashes>` format
-4. **Show command**: Present the `rl-device add` command and ask for confirmation
-5. **Execute**: Run the command
-6. **Report result**: Confirm device was added
-
----
-
-## Deployment
-
-Uploads project outputs or workspace rootfs to a target device via `rl-upload`.
-
-### Upload Project
+常用写法：
 
 ```bash
-rl-upload project --device=<device_name> --project=<project_name>
+sydev project create --config project.json
 ```
 
-Transfers the project's `install-sylixos/<platform>/` build outputs to the device.
+### 设备管理
 
-### Upload Workspace
+- 推荐先生成 `device.json` 再 `sydev device add --config device.json`
+- 设备结构化数据优先读取 `.realevo/devicelist.json`，缺失时回退 `.realevo/config.json`
+
+### 维护 `.sydev/Makefile`
+
+- 文件不存在或工程列表变化后，先跑 `sydev build init`
+- 可以安全修改：
+  - `cp-<name>` target
+  - `__` 开头的用户模板 target
+- 不要手改：
+  - 头部注释
+  - `export WORKSPACE_*`
+  - `.PHONY`
+- `sydev build init --default` 会整份重生，只有用户明确要求覆盖时才用
+
+### 编辑 `.reproject`
+
+- 默认设备来自 `DevName`
+- 上传条目优先使用 `<file local="..." remote="..."/>`
+- `$(WORKSPACE_<project>)` 中项目名要把 `-` 换成 `_`
+- `$(Output)` 会按 `config.mk` 的 `DEBUG_LEVEL` 变成 `Debug` 或 `Release`
+- 路径里包含 `libsylixos` 时，上传器会把 `$(WORKSPACE_xxx)` 替换成 base 路径
+- 兼容旧格式 `<PairItem key="..." value="..."/>`，但新内容优先写 `<file>`
+
+### 生成可复用配置
+
+生成 JSON 前先看 `references/config-schema.md`，尤其要记住两套字段名：
+
+- 单命令 `--config`：`platforms`、`createBase`
+- full/template：`workspace.platform`、`workspace.createbase`
+
+常见组合：
 
 ```bash
-rl-upload workspace --device=<device_name>
+sydev workspace init --config workspace.json
+sydev project create --config project.json
+sydev device add --config device.json
+sydev init --config full-config.json
+sydev template import full-config.json
 ```
 
-Transfers the workspace's `.realevo/arch/<platform>/rootfs/` to the device.
+## 结构化状态读取
 
-### Deploy Workflow
+需要机器可读状态时直接读这些文件：
 
-1. **Check devices**: Run `rl-device list` to see available devices
-   - If **one device** → use it automatically
-   - If **multiple devices** → ask the user which one
-   - If **no devices** → offer to create one (see Device Management)
-2. **Determine upload type**: Project upload vs workspace upload based on user request
-3. **Show command**: Present the `rl-upload` command and ask for confirmation
-4. **Execute**: Run the upload
-5. **Report result**: Summarize success or failure
+- `.realevo/workspace.json`
+- `.realevo/config.json`
+- `.realevo/devicelist.json`
+- 一级子目录中同时包含 `.project` 和 `Makefile` 的项目目录
+- `<project>/config.mk`
+- `<project>/.reproject`
+- `.sydev/Makefile`
 
-### Mapping User Intent
+不要把 CLI 的彩色输出、人类排版或提示文案当成稳定接口。
 
-- "部署 libdrv_vndbind" / "上传工程到设备" / "deploy project" → `rl-upload project`
-- "部署 workspace" / "上传 rootfs" / "deploy workspace" → `rl-upload workspace`
-- "上传到设备" (ambiguous) → ask if project or workspace upload
+## 何时读取参考资料
 
----
-
-## References
-
-### Local Reference Docs
-
-- Workspace command options: `references/workspace_command.md`
-- Project command options: `references/project_command.md`
-- Build command options: `references/build_command.md`
-- Device command options: `references/device_command.md`
-- Upload command options: `references/upload_command.md`
-- Platform compile parameters: `references/platform_compile_parameter.md`
-
-### GitLab Repository
-
-Internal GitLab server with all SylixOS source code, BSP, drivers, middleware, and project repos:
-
-- Web: http://10.7.100.21:8000/
-- SSH clone: `ssh://git@10.7.100.21:16783/<group>/<repo>.git`
-- Repository catalog (human-readable): `data/gitlab_catalog.md`
-- Repository catalog (machine-readable, all 2128 repos): `data/gitlab_repos.json`
-
-When the user mentions a repo name or wants to find a project, search the catalog first. Use the JSON file for programmatic lookups.
-
-When local references are insufficient or you need more details, consult the official RealEvo-Stream documentation:
-
-- Command reference (all CLI commands): https://docs.acoinfo.com/realevo-stream/guide/command/
-- Workspace command: https://docs.acoinfo.com/realevo-stream/guide/command/workspace_command.html
-- Project command: https://docs.acoinfo.com/realevo-stream/guide/command/project_command.html
-- Build command: https://docs.acoinfo.com/realevo-stream/guide/command/build_command.html
-- Device command: https://docs.acoinfo.com/realevo-stream/guide/command/device_command.html
-- Upload command: https://docs.acoinfo.com/realevo-stream/guide/command/upload_command.html
-- Armory (package management): https://docs.acoinfo.com/realevo-stream/guide/command/armory_command.html
-- Debug command: https://docs.acoinfo.com/realevo-stream/guide/command/debug_command.html
-
-SylixOS general documentation:
-
-- SylixOS official docs: https://docs.acoinfo.com/
-- RealEvo-Stream guide: https://docs.acoinfo.com/realevo-stream/guide/
+- `references/sydev-commands.md`
+  精确命令、参数和行为边界
+- `references/config-schema.md`
+  生成或校验 `workspace.json`、`project.json`、`device.json`、`full-config.json`
+- `references/workspace-files.md`
+  编辑 `.reproject`、`.sydev/Makefile`、理解 workspace 文件布局
+- `references/platform-mapping.md`
+  用户只给芯片、板卡或 CPU 架构时做保守推断

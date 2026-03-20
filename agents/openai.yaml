@@ -1,0 +1,7 @@
+interface:
+  display_name: "SylixOS Dev"
+  short_description: "搭建 SylixOS / RealEvo 环境并管理工程、设备、构建与上传"
+  default_prompt: "使用 $sylixos-dev 帮我创建或复用一个 SylixOS / RealEvo 开发环境，并生成可复用的配置或模板。"
+
+policy:
+  allow_implicit_invocation: true
