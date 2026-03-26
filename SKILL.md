@@ -6,15 +6,17 @@ description: >
   .sydev/Makefile、添加或管理设备、编译/clean/rebuild/upload、编辑 .reproject、
   upload 后按 sydev device 配置通过 telnet 登录设备调试、查询 SylixOS shell 命令、
   或用 sydev 构造 app/ko 测试工程时触发。用户只提供芯片/平台名（如 rk3568、
-  rk3588、x86、RISC-V、LoongArch、飞腾、龙芯）时也触发。只使用 sydev CLI 和
-  workspace 文件，不使用 RealEvo IDE、rl CLI 或内部 TypeScript API。
+  rk3588、x86、RISC-V、LoongArch、飞腾、龙芯）时也触发。默认优先使用 sydev CLI
+  和 workspace 文件；必要时可回退 RealEvo IDE、rl CLI 或其他可验证方式，但不要依赖
+  仓库内部 TypeScript API。
 ---
 
 # SylixOS / sydev Assistant
 
-把 `sydev` 当成唯一工程入口。搭环境、创工程、build/upload、补 `.reproject`、构造调试用 app/ko，
-都走 `sydev` CLI 和 workspace 文件；不要驱动 `RealEvo-IDE`、`rl`、`rl-project`、
-`rl-workspace`，也不要依赖仓库内部 TypeScript API。
+把 `sydev` 当成默认工程入口。搭环境、创工程、build/upload、补 `.reproject`、构造调试用 app/ko，
+优先走 `sydev` CLI 和 workspace 文件；如果 `sydev` 覆盖不到、行为异常，或需要用其他链路交叉验证，
+可以切换到 `RealEvo-IDE`、`rl`、`rl-project`、`rl-workspace` 或其他可验证方式，并明确说明切换原因；
+不要依赖仓库内部 TypeScript API。
 
 ## 工作原则
 
@@ -24,6 +26,7 @@ description: >
 - 多工程上传或 `--all` 上传时，总是显式传 `--device`
 - 用户要求“以后复用”时，优先生成 JSON 配置文件，再决定是否导入为全局模板
 - 修改 `.sydev/Makefile` 或 `.reproject` 前，先读 `references/workspace-files.md`
+- 默认优先 `sydev` CLI 和 workspace 文件；只有在 `sydev` 缺能力、命令异常或排障需要时，才回退到其他工具，并说明原因
 - 用户提到“调试”“telnet”“上传后验证”“shell 命令”“ko 测试”时，先读 `references/sylixos-debugging.md`
 - 用户问题明显落在 Shell、应用、驱动、容器其中一类时，先读 `references/official-doc-routing.md`
 - 如果技能内容、仓库文档和当前实现冲突，以当前 `sydev` 仓库文档和 CLI 实现为准
@@ -101,7 +104,7 @@ which sydev && sydev --version
 - 编译并上传：`sydev build <project> --quiet -- -j$(nproc)`，然后 `sydev upload <project> --device <device> --quiet`
 - 通过 `telnet <ip> <telnet-port>` 登录设备；账户密码优先读 device 配置，缺失时用 `root/root`
 - 登录后优先做最小验证：定位上传目录、确认文件存在、运行应用或装载模块、记录输出
-- 需要额外复现时，只能用 `sydev project create` 新建临时 `app` 或 `ko` 工程，不要切到 RealEvo IDE 或其他工具
+- 需要额外复现时，优先用 `sydev project create` 新建临时 `app` 或 `ko` 工程；如果 `sydev` 无法完成，再切到其他工具
 
 ## 任务手册
 
@@ -223,7 +226,7 @@ sydev project create \
 telnet <ip> <telnet-port>
 ```
 
-- 除非用户明确要求，不要在技能里引导去用 `realevo ide`、`rl project`、`rl build` 之类的旁路工具
+- 默认不要直接引导去用 `realevo ide`、`rl project`、`rl build` 之类的旁路工具；只有在 `sydev` 覆盖不到、行为异常或需要定位问题时，才回退并说明原因
 
 ## 结构化状态读取
 

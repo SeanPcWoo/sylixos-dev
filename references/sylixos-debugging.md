@@ -4,8 +4,8 @@
 
 ## 调试边界
 
-- 构造工程、编译、上传都只用 `sydev`
-- 不要引导用户切到 `RealEvo-IDE`、`rl-build`、`rl-project` 或其他旁路工具
+- 构造工程、编译、上传默认优先 `sydev`
+- 如果 `sydev` 覆盖不到、命令行为异常，或需要交叉验证问题来源，可以切到 `RealEvo-IDE`、`rl-build`、`rl-project` 或其他工具，但要先说明原因
 - `sydev` 当前没有单独的 `debug` 子命令；通常是 `build` / `upload` 之后，通过 telnet 登录设备做验证
 - SylixOS 运行时行为、Shell 命令和 OS 侧调试技巧，按 `official-doc-routing.md` 进入官方 `shell` / `app` / `drv` / `ecs` 文档
 
