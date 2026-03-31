@@ -40,6 +40,7 @@
 - **复用走 JSON**：用户要"以后能复用"时，优先生成 JSON 配置文件
 - **两套模板别混淆**：`sydev template` 管的是配置模板（`~/.sydev/templates/`），`sydev build __xxx` 执行的是 `.sydev/Makefile` 里的构建模板
 - **冲突时以代码为准**：文档和 CLI 实现冲突时，以当前 CLI 实现为准
+- **失败看退出码和 stderr**：`sydev` 命令失败时检查退出码和 stderr 输出；编译失败会自动提取错误行摘要
 
 ---
 

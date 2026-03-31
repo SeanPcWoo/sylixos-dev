@@ -4,7 +4,11 @@ description: >
   SylixOS / sydev 开发与调试助手。当用户要搭建 SylixOS workspace、创建工程、添加设备、
   编译(build/clean/rebuild)、上传(upload)产物到设备、telnet 调试、生成或应用 JSON 配置
   模板、编辑 .reproject 或 .sydev/Makefile 时触发。用户只给出芯片名（rk3568、rk3588、
-  飞腾、龙芯等）或平台架构（ARM64、RISC-V、LoongArch）时也触发。
+  飞腾、龙芯等）或平台架构（ARM64、RISC-V、LoongArch）时也触发。Also triggers for
+  SylixOS cross-compilation, RTOS workspace setup, sydev CLI usage, embedded device
+  deployment, and any mention of RealEvo or rl-workspace/rl-build/rl-project toolchain.
+  即使用户没有明确提到 sydev，只要涉及 SylixOS 相关的嵌入式开发环境搭建、编译部署，
+  都应该使用此技能。
 ---
 
 # SylixOS / sydev 助手
@@ -52,6 +56,7 @@ description: >
 - **复用走 JSON**：用户要"以后能复用"时，优先生成 JSON 配置文件
 - **两套模板别混淆**：`sydev template` 管的是配置模板（`~/.sydev/templates/`），`sydev build __xxx` 执行的是 `.sydev/Makefile` 里的构建模板
 - **冲突时以代码为准**：技能内容、仓库文档和 CLI 实现冲突时，以当前 CLI 实现为准
+- **失败看退出码和 stderr**：`sydev` 命令失败时检查退出码和 stderr 输出；编译失败会自动提取错误行摘要
 
 ## 搭建环境
 
