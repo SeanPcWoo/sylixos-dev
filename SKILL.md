@@ -1,14 +1,16 @@
 ---
 name: sylixos-dev
 description: >
-  SylixOS / sydev 开发与调试助手。当用户要搭建 SylixOS workspace、创建工程、添加设备、
-  编译(build/clean/rebuild)、上传(upload)产物到设备、telnet 调试、生成或应用 JSON 配置
-  模板、编辑 .reproject 或 .sydev/Makefile 时触发。用户只给出芯片名（rk3568、rk3588、
-  飞腾、龙芯等）或平台架构（ARM64、RISC-V、LoongArch）时也触发。Also triggers for
-  SylixOS cross-compilation, RTOS workspace setup, sydev CLI usage, embedded device
-  deployment, and any mention of RealEvo or rl-workspace/rl-build/rl-project toolchain.
-  即使用户没有明确提到 sydev，只要涉及 SylixOS 相关的嵌入式开发环境搭建、编译部署，
-  都应该使用此技能。
+  SylixOS / sydev 开发与调试助手。当用户要为 SylixOS 开发/编写/写程序（app、驱动、内核模块等）、
+  搭建 SylixOS workspace、创建工程、添加设备、编译(build/clean/rebuild)、上传(upload)产物到
+  设备、在板子上测试/验证/跑一下、telnet 调试、生成或应用 JSON 配置模板、编辑 .reproject 或
+  .sydev/Makefile 时触发。用户只给出芯片名（rk3568、rk3588、飞腾、龙芯等）或平台架构
+  （ARM64、RISC-V、LoongArch）时也触发。Also triggers for SylixOS cross-compilation,
+  RTOS workspace setup, sydev CLI usage, embedded device deployment, and any mention of
+  RealEvo or rl-workspace/rl-build/rl-project toolchain. 即使用户没有明确提到 sydev，
+  只要涉及 SylixOS 相关的程序开发、嵌入式开发环境搭建、编译部署，都应该使用此技能。
+  注意：为 SylixOS 开发任何程序都必须先通过 sydev 创建工程，不要手动创建 Makefile 和
+  config.mk——sydev project create 会自动生成正确的工程骨架。
 ---
 
 # SylixOS / sydev 助手
@@ -21,6 +23,13 @@ description: >
 
 收到请求后按以下顺序判断：
 
+0. **开发/编写程序** → 这是一个完整闭环，按顺序执行：
+   1. 创建工程（`sydev project create`）
+   2. 编写代码
+   3. 编译（`sydev build`）
+   4. 上传（`sydev upload`）
+   5. **询问用户是否需要上板调试验证**——如果用户确认，则 telnet 登录设备，运行程序，确认输出正确；如果需要在宿主机侧配合测试（如发送报文、构造请求），也应该自行完成
+   步骤 1-4 自动执行，步骤 5 询问用户后决定。
 1. **芯片/板卡名** → 读 `references/platform-mapping.md` 推断平台，推断不确定时追问
 2. **搭建环境** → 生成 JSON 配置，走 `sydev init --config` 或分步命令
 3. **编译/上传** → 确认在 workspace 根目录，直接执行
@@ -57,6 +66,7 @@ description: >
 - **两套模板别混淆**：`sydev template` 管的是配置模板（`~/.sydev/templates/`），`sydev build __xxx` 执行的是 `.sydev/Makefile` 里的构建模板
 - **冲突时以代码为准**：技能内容、仓库文档和 CLI 实现冲突时，以当前 CLI 实现为准
 - **失败看退出码和 stderr**：`sydev` 命令失败时检查退出码和 stderr 输出；编译失败会自动提取错误行摘要
+- **上传后主动询问是否验证**：upload 成功后询问用户是否需要 telnet 登录设备验证。如果用户确认，自动 telnet 登录、运行程序、确认输出符合预期。设备登录信息从 `.realevo/devicelist.json` 获取，缺失时回退 telnet=23、root/root
 
 ## 搭建环境
 
