@@ -1,6 +1,6 @@
-# sydev 命令参考
+# sydev 命令参考（v0.4.14）
 
-以当前 `sydev` 文档和 `apps/cli/src/commands/` 实现为准，面向 Agent 的重点是“哪些命令适合自动化”和“哪些参数容易写错”。
+以当前 `sydev` 文档和 `apps/cli/src/commands/` 实现为准，面向 Agent 的重点是”哪些命令适合自动化”和”哪些参数容易写错”。
 
 ## 命令总览
 
@@ -37,10 +37,12 @@ sydev workspace init [options]
 
 - `--cwd <path>`
 - `--base-path <path>`
-- `--version <version>`
-- `--platforms <platforms>`
-- `--os <os>`
-- `--debug-level <level>`
+- `--version <version>` — `default`/`ecs_3.6.5`/`lts_3.6.5`/`lts_3.6.5_compiled`/`research`/`custom`
+- `--platforms <platforms>` — 逗号分隔，如 `ARM64_GENERIC,X86_64`
+- `--os <os>` — `sylixos`/`linux`
+- `--debug-level <level>` — `release`/`debug`
+- `--arm64-page-shift <shift>` — ARM64 页偏移：`12`(4K)、`14`(16K)、`16`(64K)
+- `--base-components <components>` — 逗号分隔，如 `libsylixos,openssl`；其中 `libsylixos` 必选
 - `--custom-repo <repo>`
 - `--custom-branch <branch>`
 - `--research-branch <branch>`
@@ -52,6 +54,9 @@ sydev workspace init [options]
 
 - `version=custom` 时需要 `--custom-repo` 和 `--custom-branch`
 - `version=research` 时需要 `--research-branch`
+- `version=lts_3.6.5_compiled` 时跳过页大小、编译组件、是否编译三个交互问题
+- 即使指定了 `--build`，`rl-workspace` 阶段也会以不编译模式构造 base，之后才进入 base 目录执行 `make all`
+- workspace 构造完成后自动修补 base Makefile 的 jobserver 支持（将裸 `make` 替换为 `$(MAKE)` + `+` 前缀）
 - `--config` 字段格式见 `config-schema.md`
 
 常用写法：
@@ -184,6 +189,7 @@ sydev build [project] [--quiet] [-- make-args]
 - 执行前会先确保 `.sydev/Makefile` 存在；默认增量更新只补齐缺失工程，不改写已有工程 block
 - 执行普通工程前会同步该工程 `config.mk` 里的 `SYLIXOS_BASE_PATH`
 - 执行 `__` 模板前会同步当前 workspace 全部已识别工程的 `config.mk`
+- `project=base` 且透传了 `-j<N>` 参数时，自动检测并修补 base Makefile 的 jobserver 支持
 - 不传参数时进入交互式多选
 - 推荐 Agent 模式使用 `--quiet`
 

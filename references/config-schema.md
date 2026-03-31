@@ -81,9 +81,14 @@ sydev workspace init --config workspace.json
   "os": "sylixos",
   "debugLevel": "release",
   "createBase": true,
-  "build": false
+  "build": false,
+  "arm64PageShift": 12,
+  "baseComponents": ["libsylixos", "openssl", "libcextern"]
 }
 ```
+
+`arm64PageShift` 仅在选择 ARM64 平台时有效，可选值：`12`(4K)、`14`(16K)、`16`(64K)。
+`baseComponents` 中 `libsylixos` 必选；如果不传则使用默认全组件。
 
 特殊版本附加字段：
 
@@ -162,7 +167,9 @@ sydev init --config full-config.json
     "createbase": true,
     "build": false,
     "debugLevel": "release",
-    "os": "sylixos"
+    "os": "sylixos",
+    "arm64PageShift": 12,
+    "baseComponents": ["libsylixos", "openssl"]
   },
   "projects": [
     {

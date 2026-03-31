@@ -1,258 +1,124 @@
 ---
 name: sylixos-dev
 description: >
-  SylixOS / sydev 开发与调试助手。当用户要搭建或复用 SylixOS workspace、生成
-  workspace/project/device/full JSON 配置或模板、初始化或导入工程、生成或修改
-  .sydev/Makefile、添加或管理设备、编译/clean/rebuild/upload、编辑 .reproject、
-  upload 后按 sydev device 配置通过 telnet 登录设备调试、查询 SylixOS shell 命令、
-  或用 sydev 构造 app/ko 测试工程时触发。用户只提供芯片/平台名（如 rk3568、
-  rk3588、x86、RISC-V、LoongArch、飞腾、龙芯）时也触发。默认优先使用 sydev CLI
-  和 workspace 文件；必要时可回退 RealEvo IDE、rl CLI 或其他可验证方式，但不要依赖
-  仓库内部 TypeScript API。
+  SylixOS / sydev 开发与调试助手。当用户要搭建 SylixOS workspace、创建工程、添加设备、
+  编译(build/clean/rebuild)、上传(upload)产物到设备、telnet 调试、生成或应用 JSON 配置
+  模板、编辑 .reproject 或 .sydev/Makefile 时触发。用户只给出芯片名（rk3568、rk3588、
+  飞腾、龙芯等）或平台架构（ARM64、RISC-V、LoongArch）时也触发。
 ---
 
-# SylixOS / sydev Assistant
+# SylixOS / sydev 助手
 
-把 `sydev` 当成默认工程入口。搭环境、创工程、build/upload、补 `.reproject`、构造调试用 app/ko，
-优先走 `sydev` CLI 和 workspace 文件；如果 `sydev` 覆盖不到、行为异常，或需要用其他链路交叉验证，
-可以切换到 `RealEvo-IDE`、`rl`、`rl-project`、`rl-workspace` 或其他可验证方式，并明确说明切换原因；
-不要依赖仓库内部 TypeScript API。
+`sydev`（v0.4.14）是 SylixOS 开发环境的 CLI 入口，覆盖 workspace 初始化、工程管理、
+编译、上传和模板复用。优先通过 `sydev` 命令和 workspace 文件完成任务；只有 `sydev`
+覆盖不到时才回退到 `rl-*` 或其他工具，并说明原因。
+
+## 决策流程
+
+收到请求后按以下顺序判断：
+
+1. **芯片/板卡名** → 读 `references/platform-mapping.md` 推断平台，推断不确定时追问
+2. **搭建环境** → 生成 JSON 配置，走 `sydev init --config` 或分步命令
+3. **编译/上传** → 确认在 workspace 根目录，直接执行
+4. **编辑 Makefile / .reproject** → 先读 `references/workspace-files.md`
+5. **调试/telnet** → 先读 `references/sylixos-debugging.md`
+6. **生成配置 / 模板** → 先读 `references/config-schema.md`
+7. **查命令细节** → 读 `references/sydev-commands.md`
+8. **SylixOS 系统问题** → 按 `references/official-doc-routing.md` 定位官方文档
+
+## 核心命令速查
+
+| 场景 | 命令 |
+|------|------|
+| 初始化 workspace | `sydev workspace init --config ws.json` |
+| 创建工程 | `sydev project create --config proj.json` |
+| 添加设备 | `sydev device add --config dev.json` |
+| 一键初始化全套 | `sydev init --config full.json` |
+| 编译 | `sydev build <name> -- -j$(nproc)` |
+| 清理 | `sydev clean <name>` |
+| 重建 | `sydev rebuild <name> -- -j$(nproc)` |
+| 上传 | `sydev upload <name> --device <dev>` |
+| 批量上传 | `sydev upload --all --device <dev>` |
+| 导出当前环境 | `sydev template export -o config.json` |
+| 应用模板 | `sydev template apply config.json --cwd <ws> --base-path <base> -y` |
+| 刷新 Makefile | `sydev build init` |
 
 ## 工作原则
 
-- 优先非交互模式：完整参数、`--config`、`template apply ... -y`、`init --config`
-- 执行动作时依赖退出码；读取状态时直接读 workspace 文件
-- `build`、`clean`、`rebuild`、`upload`、`project list`、`template export` 默认要求当前目录就是 workspace 根目录
-- 多工程上传或 `--all` 上传时，总是显式传 `--device`
-- 用户要求“以后复用”时，优先生成 JSON 配置文件，再决定是否导入为全局模板
-- 修改 `.sydev/Makefile` 或 `.reproject` 前，先读 `references/workspace-files.md`
-- 默认优先 `sydev` CLI 和 workspace 文件；只有在 `sydev` 缺能力、命令异常或排障需要时，才回退到其他工具，并说明原因
-- 用户提到“调试”“telnet”“上传后验证”“shell 命令”“ko 测试”时，先读 `references/sylixos-debugging.md`
-- 用户问题明显落在 Shell、应用、驱动、容器其中一类时，先读 `references/official-doc-routing.md`
-- 如果技能内容、仓库文档和当前实现冲突，以当前 `sydev` 仓库文档和 CLI 实现为准
-- 如果是 SylixOS 运行时行为、shell 命令或调试手法，再按 `references/official-doc-routing.md` 选官方子站点
+- **非交互优先**：自动化场景总是拼完整参数或 `--config`，不依赖交互提示
+- **状态读文件**：需要机器可读的 workspace 状态时直接读 JSON 文件，不解析 CLI 彩色输出
+- **当前目录 = workspace 根**：`build`/`clean`/`rebuild`/`upload`/`project list` 默认如此
+- **多工程上传必须 --device**：多项目或 `--all` 上传时显式传 `--device`
+- **复用走 JSON**：用户要"以后能复用"时，优先生成 JSON 配置文件
+- **两套模板别混淆**：`sydev template` 管的是配置模板（`~/.sydev/templates/`），`sydev build __xxx` 执行的是 `.sydev/Makefile` 里的构建模板
+- **冲突时以代码为准**：技能内容、仓库文档和 CLI 实现冲突时，以当前 CLI 实现为准
 
-## 开始前检查
+## 搭建环境
 
-先确认工具链和上下文：
+### 路径一：一键初始化（推荐）
+
+生成 `full-config.json` 后一条命令完成 workspace + 工程 + 设备：
 
 ```bash
-which sydev && sydev --version
+sydev init --config full-config.json
 ```
 
-然后判断当前任务属于哪一类：
+JSON 格式见 `references/config-schema.md`。需要复用时追加 `sydev template import full-config.json`。
 
-- 新建环境：收集 `cwd`、`basePath`、`version`、`platform(s)`、`os`、`debugLevel`、`createBase`、`build`
-- 维护现有 workspace：确认当前目录存在 `.realevo/`
-- 设备调试：额外检查 `which telnet`，并先解析设备登录信息
-- 用户只给了芯片或板卡名：读取 `references/platform-mapping.md` 推断 `--platforms`；如果推断风险高，明确说明推断点并只追问缺失的架构信息
-
-调试任务先按这个优先级找设备信息：
-
-1. `.realevo/devicelist.json`
-2. `.realevo/config.json`
-
-如果设备里缺少 telnet 端口、用户名或密码，默认回退：
-
-- telnet 端口：`23`
-- 用户名：`root`
-- 密码：`root`
-
-## 选工作流
-
-### 1. 一次性初始化整套环境
-
-适用于“帮我把 workspace、工程、设备都建好”。
-
-- 优先写 `full-config.json`
-- 执行 `sydev init --config full-config.json`
-- 如果用户还想下次直接复用，再执行 `sydev template import full-config.json`
-
-### 2. 分步搭环境
-
-适用于只改某一部分，或者用户想显式控制每一步。
-
-- `sydev workspace init`
-- `sydev project create`
-- `sydev device add`
-- `sydev build`
-- `sydev upload`
-
-### 3. 模板化复用环境
-
-适用于“这套环境以后还要再来一遍”。
-
-- 从现有 workspace 导出：`sydev template export -o sydev-config.json`
-- 导入全局模板库：`sydev template import sydev-config.json`
-- 在新目录落地：`sydev template apply sydev-config.json --cwd <ws> --base-path <base> -y`
-
-### 4. 日常开发维护
-
-适用于已有 workspace 的编译、Makefile、上传和配置修补。
-
-- 刷新 `.sydev/Makefile`：`sydev build init`
-- 编译：`sydev build <project> --quiet -- -j$(nproc)`
-- 清理：`sydev clean <project>`
-- 重建：`sydev rebuild <project> -- -j$(nproc)`
-- 上传：`sydev upload <project> --device <device> --quiet`
-
-### 5. SylixOS 调试与验证
-
-适用于“upload 后上板验证”“telnet 看系统状态”“做个 app/ko 复现一下”。
-
-- 先解析设备参数和 `.reproject`
-- 编译并上传：`sydev build <project> --quiet -- -j$(nproc)`，然后 `sydev upload <project> --device <device> --quiet`
-- 通过 `telnet <ip> <telnet-port>` 登录设备；账户密码优先读 device 配置，缺失时用 `root/root`
-- 登录后优先做最小验证：定位上传目录、确认文件存在、运行应用或装载模块、记录输出
-- 需要额外复现时，优先用 `sydev project create` 新建临时 `app` 或 `ko` 工程；如果 `sydev` 无法完成，再切到其他工具
-
-## 任务手册
-
-### 搭建 workspace
-
-- 用户想要可复用方案时，优先生成 `workspace.json`，不要先拼很长一条命令
-- `workspace init --config` 使用“命令参数风格”字段，细节见 `references/config-schema.md`
-- 用户只说芯片名时，先看 `references/platform-mapping.md`
-
-常用写法：
-
-```bash
-sydev workspace init --config workspace.json
-```
-
-或：
-
-```bash
-sydev workspace init \
-  --cwd <ws> \
-  --base-path <ws>/.realevo/base \
-  --version default \
-  --platforms <platforms> \
-  --os sylixos \
-  --debug-level release \
-  --create-base \
-  --build
-```
-
-### 创建或导入工程
-
-- 现有仓库走 `--mode import`
-- 新建模板工程走 `--mode create`
-- 多工程环境优先落到 `full-config.json`，比多条 shell 命令更稳定
-
-常用写法：
-
-```bash
-sydev project create --config project.json
-```
-
-### 设备管理
-
-- 推荐先生成 `device.json` 再 `sydev device add --config device.json`
-- 设备结构化数据优先读取 `.realevo/devicelist.json`，缺失时回退 `.realevo/config.json`
-- 调试场景直接复用设备里的 `ip`、`telnet`、`username/user`、`password`，不要再让用户重复输入一遍
-
-### 维护 `.sydev/Makefile`
-
-- 文件不存在或工程列表变化后，先跑 `sydev build init`
-- 可以安全修改：
-  - 已有工程 block 里的 `build` / `clean` / `rebuild` / `cp-<name>` target（默认增量更新会原样保留）
-  - `__` 开头的用户模板 target
-- 不要手改：
-  - 头部注释
-  - `export WORKSPACE_*`
-  - `.PHONY`
-- `sydev build` / `sydev build init` 默认只刷新头部并补齐缺失工程，不会改写已有工程 block
-- `sydev build init --default` 会整份重生，只有用户明确要求覆盖时才用
-
-### 编辑 `.reproject`
-
-- 默认设备来自 `DevName`
-- 上传条目优先使用 `<file local="..." remote="..."/>`
-- `$(WORKSPACE_<project>)` 中项目名要把 `-` 换成 `_`
-- `$(Output)` 会按 `config.mk` 的 `DEBUG_LEVEL` 变成 `Debug` 或 `Release`
-- 路径里包含 `libsylixos` 时，上传器会把 `$(WORKSPACE_xxx)` 替换成 base 路径
-- 兼容旧格式 `<PairItem key="..." value="..."/>`，但新内容优先写 `<file>`
-
-### 生成可复用配置
-
-生成 JSON 前先看 `references/config-schema.md`，尤其要记住两套字段名：
-
-- 单命令 `--config`：`platforms`、`createBase`
-- full/template：`workspace.platform`、`workspace.createbase`
-
-常见组合：
+### 路径二：分步执行
 
 ```bash
 sydev workspace init --config workspace.json
 sydev project create --config project.json
 sydev device add --config device.json
-sydev init --config full-config.json
-sydev template import full-config.json
 ```
 
-### SylixOS 调试
-
-- 先读 `references/sylixos-debugging.md`
-- 再按 `references/official-doc-routing.md` 选对应官方文档域
-- 如果只是验证上传后的二进制、库或脚本，优先复用现有工程
-- 如果需要最小复现，优先新建临时 app：
+### 路径三：模板复用
 
 ```bash
-sydev project create \
-  --mode create \
-  --name dbg-app \
-  --template app \
-  --type cmake \
-  --debug-level debug \
-  --make-tool make
+sydev template export -o config.json
+sydev template apply config.json --cwd <新路径> --base-path <新base> -y
 ```
 
-- 如果需要验证内核态行为、模块加载或 shell 扩展，再新建临时 ko：
+## 日常开发循环
 
 ```bash
-sydev project create \
-  --mode create \
-  --name dbg-ko \
-  --template ko \
-  --type cmake \
-  --debug-level debug \
-  --make-tool make
-```
-
-- 上传后按设备配置 telnet 登录：
-
-```bash
+sydev build <project> --quiet -- -j$(nproc)
+sydev upload <project> --device <device> --quiet
 telnet <ip> <telnet-port>
 ```
 
-- 默认不要直接引导去用 `realevo ide`、`rl project`、`rl build` 之类的旁路工具；只有在 `sydev` 覆盖不到、行为异常或需要定位问题时，才回退并说明原因
+## 调试与验证
 
-## 结构化状态读取
+upload 后需要上板验证时：
 
-需要机器可读状态时直接读这些文件：
+1. 从 `.realevo/devicelist.json`（优先）或 `.realevo/config.json` 获取设备信息
+2. 默认回退值：telnet=23, username=root, password=root
+3. `telnet <ip> <port>` 登录后做最小验证
+4. 需要构造临时测试工程时用 `sydev project create`（app 或 ko 模板）
 
-- `.realevo/workspace.json`
-- `.realevo/config.json`
-- `.realevo/devicelist.json`
-- 一级子目录中同时包含 `.project` 和 `Makefile` 的项目目录
-- `<project>/config.mk`
-- `<project>/.reproject`
-- `.sydev/Makefile`
+详细流程见 `references/sylixos-debugging.md`。
 
-不要把 CLI 的彩色输出、人类排版或提示文案当成稳定接口。
+## Workspace 关键文件
 
-## 何时读取参考资料
+| 文件 | 用途 |
+|------|------|
+| `.realevo/config.json` | base 路径、平台、设备 |
+| `.realevo/workspace.json` | workspace 初始化参数 |
+| `.realevo/devicelist.json` | 设备列表（rl-device 写入） |
+| `.sydev/Makefile` | `sydev build init` 生成的构建脚本 |
+| `<project>/config.mk` | `SYLIXOS_BASE_PATH` 自动同步 |
+| `<project>/.reproject` | 上传配置（设备名 + 文件映射） |
 
-- `references/sydev-commands.md`
-  精确命令、参数和行为边界
-- `references/config-schema.md`
-  生成或校验 `workspace.json`、`project.json`、`device.json`、`full-config.json`
-- `references/workspace-files.md`
-  编辑 `.reproject`、`.sydev/Makefile`、理解 workspace 文件布局
-- `references/platform-mapping.md`
-  用户只给芯片、板卡或 CPU 架构时做保守推断
-- `references/sylixos-debugging.md`
-  upload 后调试、telnet 登录、Shell 命令查找、app/ko 最小复现
-- `references/official-doc-routing.md`
-  SylixOS 官方 `shell` / `app` / `drv` / `ecs` 文档入口与选路规则
+编辑 `.reproject` 或 `.sydev/Makefile` 前先读 `references/workspace-files.md`。
+
+## 参考资料索引
+
+| 文件 | 何时读取 |
+|------|---------|
+| `references/sydev-commands.md` | 需要精确命令选项、参数、行为边界 |
+| `references/config-schema.md` | 生成或校验 JSON 配置文件 |
+| `references/workspace-files.md` | 编辑 .reproject、.sydev/Makefile、理解文件布局 |
+| `references/platform-mapping.md` | 用户只给芯片名或架构名，需要推断平台 |
+| `references/sylixos-debugging.md` | upload 后调试、telnet、Shell 命令、构造测试工程 |
+| `references/official-doc-routing.md` | SylixOS 官方文档（shell/app/drv/ecs）入口选路 |

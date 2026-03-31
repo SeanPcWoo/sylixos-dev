@@ -269,8 +269,8 @@ sydev build init --default
 
 - 普通工程：只同步当前目标工程的 `config.mk`
 - `sydev build __template`：会同步当前 workspace 中已识别的所有工程
-- 当前实现只更新或追加 `SYLIXOS_BASE_PATH`
-- 当前实现不会自动插入 `PLATFORM_NAME`
+- 更新或追加 `SYLIXOS_BASE_PATH`
+- 若 base 的 `config.mk` 启用了 `MULTI_PLATFORM_BUILD=yes`，还会同步 `PLATFORM_NAME`
 
 因此：
 
