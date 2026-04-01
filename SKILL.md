@@ -10,7 +10,9 @@ description: >
   RealEvo or rl-workspace/rl-build/rl-project toolchain. 即使用户没有明确提到 sydev，
   只要涉及 SylixOS 相关的程序开发、嵌入式开发环境搭建、编译部署，都应该使用此技能。
   注意：为 SylixOS 开发任何程序都必须先通过 sydev 创建工程，不要手动创建 Makefile 和
-  config.mk——sydev project create 会自动生成正确的工程骨架。
+  config.mk——sydev project create 会自动生成正确的工程骨架。创建工程默认使用非交互
+  命令行参数（--mode create --name ... --template ... --type realevo），而非 --config，
+  因为通常没有现成的 project JSON 文件。--type 默认值为 realevo。
 ---
 
 # SylixOS / sydev 助手
@@ -43,10 +45,10 @@ description: >
 
 | 场景 | 命令 |
 |------|------|
-| 初始化 workspace | `sydev workspace init --config ws.json` |
-| 创建工程 | `sydev project create --config proj.json` |
-| 添加设备 | `sydev device add --config dev.json` |
-| 一键初始化全套 | `sydev init --config full.json` |
+| 初始化 workspace | `sydev workspace init --cwd <path> --base-path <path> --version <ver> --platforms <plat> --os sylixos --debug-level release --create-base` |
+| 创建工程 | `sydev project create --mode create --name <name> --template <tpl> --type realevo` |
+| 添加设备 | `sydev device add --name <name> --ip <ip> --platforms <plat>` |
+| 一键初始化全套 | `sydev init --config full.json`（全套初始化场景较复杂，仍推荐用 JSON） |
 | 编译 | `sydev build <name> -- -j$(nproc)` |
 | 清理 | `sydev clean <name>` |
 | 重建 | `sydev rebuild <name> -- -j$(nproc)` |
@@ -70,23 +72,37 @@ description: >
 
 ## 搭建环境
 
-### 路径一：一键初始化（推荐）
+### 路径一：分步执行（默认，直接用命令行参数）
 
-生成 `full-config.json` 后一条命令完成 workspace + 工程 + 设备：
+```bash
+sydev workspace init \
+  --cwd /path/to/ws \
+  --base-path /path/to/ws/.realevo/base \
+  --version lts_3.6.5 \
+  --platforms ARM64_GENERIC \
+  --os sylixos \
+  --debug-level release \
+  --create-base
+
+sydev project create \
+  --mode create \
+  --name myapp \
+  --template app \
+  --type realevo
+
+sydev device add \
+  --name board1 \
+  --ip 192.168.1.100 \
+  --platforms ARM64_GENERIC
+```
+
+### 路径二：一键初始化（有现成 JSON 配置文件时）
 
 ```bash
 sydev init --config full-config.json
 ```
 
 JSON 格式见 `references/config-schema.md`。需要复用时追加 `sydev template import full-config.json`。
-
-### 路径二：分步执行
-
-```bash
-sydev workspace init --config workspace.json
-sydev project create --config project.json
-sydev device add --config device.json
-```
 
 ### 路径三：模板复用
 

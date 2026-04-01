@@ -59,11 +59,7 @@ sydev workspace init [options]
 - workspace 构造完成后自动修补 base Makefile 的 jobserver 支持（将裸 `make` 替换为 `$(MAKE)` + `+` 前缀）
 - `--config` 字段格式见 `config-schema.md`
 
-常用写法：
-
-```bash
-sydev workspace init --config workspace.json
-```
+常用写法（优先使用非交互命令行参数，而非 `--config`）：
 
 ```bash
 sydev workspace init \
@@ -75,6 +71,12 @@ sydev workspace init \
   --debug-level release \
   --create-base \
   --build
+```
+
+如果已有 workspace JSON 配置文件，也可以：
+
+```bash
+sydev workspace init --config workspace.json
 ```
 
 ### `sydev workspace status`
@@ -106,7 +108,7 @@ sydev project create [options]
 - `--mode create`
 - `--name <name>`
 - `--template <template>`
-- `--type <type>`
+- `--type <type>` — 默认使用 `realevo`
 - `--debug-level <release|debug>`
 - `--make-tool <make|ninja>`
 
@@ -114,10 +116,14 @@ sydev project create [options]
 
 - `--config <file>`
 
-常用写法：
+常用写法（优先使用非交互命令行参数，而非 `--config`）：
 
 ```bash
-sydev project create --config project.json
+sydev project create \
+  --mode create \
+  --name myapp \
+  --template app \
+  --type realevo
 ```
 
 ```bash
@@ -127,6 +133,12 @@ sydev project create \
   --source https://git.example.com/bsp/rk3568.git \
   --branch main \
   --make-tool make
+```
+
+如果已有 project JSON 配置文件，也可以：
+
+```bash
+sydev project create --config project.json
 ```
 
 ### `sydev project list`
@@ -158,7 +170,16 @@ sydev device add [options]
 - `--gdb <port>`
 - `--config <file>`
 
-常用写法：
+常用写法（优先使用非交互命令行参数，而非 `--config`）：
+
+```bash
+sydev device add \
+  --name board1 \
+  --ip 192.168.1.100 \
+  --platforms ARM64_GENERIC
+```
+
+如果已有 device JSON 配置文件，也可以：
 
 ```bash
 sydev device add --config device.json
@@ -335,13 +356,13 @@ sydev template import <file> [-y]
 sydev init --config full-config.json
 ```
 
-适合“一次性把 workspace、projects、devices 全部初始化好”。
+适合”一次性把 workspace、projects、devices 全部初始化好”。`init` 命令只支持 `--config`，不支持纯命令行参数分步传入，因此这是唯一需要 JSON 的场景。日常单独创建 workspace/project/device 时优先用各自的非交互命令行参数。
 
 关键点：
 
 - 使用 full 配置风格，不是 `workspace init --config` 的字段名
 - `workspace.cwd` / `workspace.basePath` 缺失时会提示输入
-- 适合 Agent 构造一份可复用的完整环境描述
+- 适合需要一次性复用的完整环境描述
 
 ## 调试相关
 
