@@ -37,6 +37,7 @@ description: >
 3. **编译/上传** → 确认在 workspace 根目录，直接执行
 4. **编辑 Makefile / .reproject** → 先读 `references/workspace-files.md`
 5. **调试/telnet** → 先读 `references/sylixos-debugging.md`
+5.5. **移植第三方库** → 先读 `references/porting-guide.md`，按标准流程执行
 6. **生成配置 / 模板** → 先读 `references/config-schema.md`
 7. **查命令细节** → 读 `references/sydev-commands.md`
 8. **SylixOS 系统问题** → 按 `references/official-doc-routing.md` 定位官方文档
@@ -143,6 +144,19 @@ upload 后需要上板验证时：
 
 编辑 `.reproject` 或 `.sydev/Makefile` 前先读 `references/workspace-files.md`。
 
+## 第三方库移植
+
+移植第三方开源库到 SylixOS 时，先读 `references/porting-guide.md`。标准流程：
+
+1. **sydev 创建工程** → `sydev project create` + `git init`
+2. **导入源码** → 拷贝到工程目录，提交原始代码
+3. **条件编译修改** → `#ifdef SYLIXOS / #else / #endif` 保留原实现
+4. **兼容头文件** → 创建 `xxx_sylixos_compat.h` 处理宏冲突（optarg、SCHED_OTHER 等）
+5. **构建验证** → 配置 `.mk` 文件，`sydev build` 编译通过
+6. **文档记录** → 创建 `PORTING.md` 记录所有改动
+
+推荐移植基础：FreeBSD > Linux > POSIX（SylixOS 与 FreeBSD API 更接近）。
+
 ## 参考资料索引
 
 | 文件 | 何时读取 |
@@ -153,3 +167,4 @@ upload 后需要上板验证时：
 | `references/platform-mapping.md` | 用户只给芯片名或架构名，需要推断平台 |
 | `references/sylixos-debugging.md` | upload 后调试、telnet、Shell 命令、构造测试工程 |
 | `references/official-doc-routing.md` | SylixOS 官方文档（shell/app/drv/ecs）入口选路 |
+| `references/porting-guide.md` | 移植第三方库到 SylixOS 的方法论和 API 对照表 |

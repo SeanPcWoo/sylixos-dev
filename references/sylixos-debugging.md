@@ -124,6 +124,28 @@ sydev upload <project> --device <device> --quiet
 - 需要验证内核态行为、模块装载卸载，或要把能力挂到系统里时，再选 `ko`
 - 如果目的是注册或扩展 Shell 命令，先去 `shell` 文档里的 `添加自定义 Shell 命令`，再决定是继续走现有工程、临时 `ko`，还是需要 BSP 侧改动
 
+## 重复加载导致的异常错误
+
+SylixOS 动态加载器在**同一个进程/会话中重复加载同一个模块**时，可能因为前一次加载残留的状态（符号表、内存映射等）导致后续加载出现异常错误，常见表现包括：
+
+- `[ld]Can not find dependent library: <乱码或截断字符串>`（如 `reate`、空字符串等）
+- `[ld]Load file "..." error Module version not fix to current OS!`，附带 `OS-version` 显示乱码或空值
+- `[ld]Load file "..." error Can not find module!`
+
+**这些不是代码问题，而是模块重复加载的冲突。**
+
+### 处理方法
+
+1. **重启板卡**后再测试：
+   ```
+   reboot
+   ```
+   等待板卡重新上线（通常 15-30 秒），重新 telnet 登录后执行程序。
+
+2. **自动化脚本中的做法**：在多轮"上传→运行→修改→重新上传→运行"的迭代调试中，如果遇到上述 loader 错误，先重启再继续，不要花时间排查 ELF 格式或 loader 行为。
+
+3. **判断依据**：如果程序之前能正常加载运行，修改代码后出现 loader 级别的报错（而非运行时报错），优先怀疑是重复加载冲突，重启后重试。
+
 ## 文档查找路线
 
 优先按任务去找对应子文档，入口和规则见 `official-doc-routing.md`：
